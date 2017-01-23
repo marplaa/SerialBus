@@ -1,6 +1,9 @@
-class SerialBus:
+import sys
+import time
+import serial
+import socket
 
-    import serial
+class SerialBus:
 
     CONNECTION_ERROR = 5
 
@@ -8,10 +11,10 @@ class SerialBus:
     msg_index = 0
 
 
-
     def __init__(self, port = None, baud = None, serialnum = None):
+        
         self.connected = False
-        if port is not None and port is not None:
+        if port is not None and baud is not None:
             if self.connect(port, baud):
                 self.connected = True
         elif serialnum is not None and baud is not None:
@@ -23,7 +26,7 @@ class SerialBus:
             self.ser.close()
             self.connected = False
 
-    def is_connected():
+    def is_connected(self):
         return self.connected
 
 
@@ -35,36 +38,38 @@ class SerialBus:
 
     def connect_to_bridge(self, serialnum, baud):
 
+        from serial.tools import list_ports
+
         # a list containing active ports
-        portlist = list(serial.tools.list_ports.comports())
+        portlist = list(list_ports.comports())
 
         for device in portlist:
             # connect and ask for serialnum
             try:
-                #print("check for serialnum (", str(args.serialnum) , ") on port: ", device.device)
+                print("check for serialnum (", serialnum , ") on port: ", device.device)
                 ser = serial.Serial(
                 port = device.device,
                 baudrate = baud,
                 parity = serial.PARITY_NONE,
                 stopbits = serial.STOPBITS_ONE,
                 bytesize = serial.EIGHTBITS,
-                timeout = 5)
+                timeout = 2)
 
                 time.sleep(2)
 
                 ser.write(b'identify\n')
 
                 line = ser.readline()
-                #print("recieved: ", line[:len(line)-1])
+                print("recieved: ", line[:len(line)-1].decode('ascii'))
                 
 
-                if line[:len(line)-1] == serialnum:
+                if line[:len(line)-1].decode('ascii') == (serialnum):
                     self.ser = ser
-                    return
+                    return True
                 else:
                     ser.close()
-                
             except:
+                raise
                 pass
 
     def build_header(self, address, permission_to_send, size):
@@ -121,7 +126,7 @@ class SerialBus:
         message += bytes([self.build_XOR_checksum(message)])
         self.send_raw_message(message)
 
-    def send_request_wait(self, address, msg, timeout=5.0):
+    def send_request_wait(self, address, msg, timeout=10**4):
         """ send a request. permission to send = true """
         try:
             header = self.build_header(address, True, len(msg)+1)
@@ -307,15 +312,10 @@ class SerialBus:
             result = result ^ byte
         return result
 
-    
-
-
 
 class SerialBusTCP:
 
-    import socket
-    import sys
-    import time
+
 
     CONNECTION_ERROR = 5
 
