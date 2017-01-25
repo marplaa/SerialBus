@@ -60,17 +60,15 @@ def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
 
                 time.sleep(2)
 
-                ser.write(b'identify\n')
+                ser.println("identify")
 
                 line = ser.readline()
                 print("recieved: ", line[:len(line)-1])
-                #ser.close()
+                ser.close()
                 
 
                 if line[:len(line)-1] == serialnum:
-                    return ser
-                else:
-                    ser.close()
+                    return device.device
                 
                 
             except serial.SerialException:
@@ -188,24 +186,20 @@ it waits for the next connect.
 
         # connect to serial port
         if args.serialport is not None:
-            ser = serial.Serial(
-                port = device.device,
-                baudrate = args.BAUDRATE,
-                parity = serial.PARITY_NONE,
-                stopbits = serial.STOPBITS_ONE,
-                bytesize = serial.EIGHTBITS,
-                timeout = 5)
+            serialport = args.serialport
         else:
             if args.serialnum is not None:
-                ser = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
+                serialport = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
             else:
-                ser = get_device_vidpid(args.vidpid[0], args.vidpid[1])
+                serialport = get_device_vidpid(args.vidpid[0], args.vidpid[1])
+            
+        ser = serial.serial_for_url(serialport, do_not_open=True)
 
 
-        #ser.baudrate = args.BAUDRATE
-        #ser.parity = args.parity
-        #ser.rtscts = args.rtscts
-        #ser.xonxoff = args.xonxoff
+        ser.baudrate = args.BAUDRATE
+        ser.parity = args.parity
+        ser.rtscts = args.rtscts
+        ser.xonxoff = args.xonxoff
 
         if args.rts is not None:
             ser.rts = args.rts
@@ -219,7 +213,7 @@ it waits for the next connect.
                 '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
 
         try:
-            pass
+            ser.open()
         except serial.SerialException as e:
             if args.develop:
                 raise
@@ -227,6 +221,7 @@ it waits for the next connect.
             time.sleep(5)
             connect_to_serial()
             return
+            
 
         ser_to_net = SerialToNet()
         serial_worker = serial.threaded.ReaderThread(ser, ser_to_net)
