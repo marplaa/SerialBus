@@ -1,4 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+#
+# Copyright 2016-2017 Martin Plaas <mar.pla@gmx.de
+#
+# This is a modified version of Chris Liechtis tcp_serial_redirect.py:
 #
 # Redirect data from a TCP/IP connection to a serial port and vice versa.
 #
@@ -46,7 +50,7 @@ def get_device_vidpid(vendor_id, product_id):
                 parity = serial.PARITY_NONE,
                 stopbits = serial.STOPBITS_ONE,
                 bytesize = serial.EIGHTBITS,
-                timeout = 5)
+                timeout = 2)
 
                 time.sleep(2)
 
@@ -77,18 +81,17 @@ def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
                 parity = serial.PARITY_NONE,
                 stopbits = serial.STOPBITS_ONE,
                 bytesize = serial.EIGHTBITS,
-                timeout = 5)
+                timeout = 2)
 
                 time.sleep(2)
 
                 ser.write(b'identify\n')
 
                 line = ser.readline()
-                #print("recieved: ", line[:len(line)-1])
-                #ser.close()
+                #print("recieved: ", line[:len(line)-1].decode('ascii'))
                 
 
-                if line[:len(line)-1] == serialnum:
+                if line[:len(line)-1].decode('ascii') == serialnum:
                     return ser
                 else:
                     ser.close()
@@ -241,7 +244,7 @@ it waits for the next connect.
                     '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
 
             
-            ser.open()
+            #ser.open()
  
 
             ser_to_net = SerialToNet()

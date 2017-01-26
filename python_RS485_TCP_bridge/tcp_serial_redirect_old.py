@@ -72,8 +72,7 @@ def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
                 
                 
             except serial.SerialException:
-                raise
-                pass           
+                raise       
 
 
 if __name__ == '__main__':  # noqa
@@ -183,53 +182,54 @@ it waits for the next connect.
         global ser
         global ser_to_net
         global serial_worker
-
-        # connect to serial port
-        if args.serialport is not None:
-            serialport = args.serialport
-        else:
-            if args.serialnum is not None:
-                serialport = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
-            else:
-                serialport = get_device_vidpid(args.vidpid[0], args.vidpid[1])
-            
-        ser = serial.serial_for_url(serialport, do_not_open=True)
-
-
-        ser.baudrate = args.BAUDRATE
-        ser.parity = args.parity
-        ser.rtscts = args.rtscts
-        ser.xonxoff = args.xonxoff
-
-        if args.rts is not None:
-            ser.rts = args.rts
-
-        if args.dtr is not None:
-            ser.dtr = args.dtr
-
-        if not args.quiet:
-            sys.stderr.write(
-                '--- TCP/IP to Serial redirect on {p.name}  {p.baudrate},{p.bytesize},{p.parity},{p.stopbits} ---\n'
-                '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
+        
 
         try:
-            ser.open()
-        except serial.SerialException as e:
-            if args.develop:
-                raise
-            sys.stderr.write('Could not open serial port {}: {}\n'.format(ser.name, e))
-            time.sleep(5)
-            connect_to_serial()
-            return
+            # connect to serial port
+            if args.serialport is not None:
+                serialport = args.serialport
+            else:
+                if args.serialnum is not None:
+                    serialport = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
+                else:
+                    serialport = get_device_vidpid(args.vidpid[0], args.vidpid[1])
+                
+            ser = serial.serial_for_url(serialport, do_not_open=True)
+
+
+            ser.baudrate = args.BAUDRATE
+            ser.parity = args.parity
+            ser.rtscts = args.rtscts
+            ser.xonxoff = args.xonxoff
+
+            if args.rts is not None:
+                ser.rts = args.rts
+
+            if args.dtr is not None:
+                ser.dtr = args.dtr
+
+            if not args.quiet:
+                sys.stderr.write(
+                    '--- TCP/IP to Serial redirect on {p.name}  {p.baudrate},{p.bytesize},{p.parity},{p.stopbits} ---\n'
+                    '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
+
             
+            ser.open()
+            
+            ser_to_net = SerialToNet()
+            serial_worker = serial.threaded.ReaderThread(ser, ser_to_net)
+            serial_worker.start()
+            return True
+        except:
+            return False
 
-        ser_to_net = SerialToNet()
-        serial_worker = serial.threaded.ReaderThread(ser, ser_to_net)
-        serial_worker.start()
 
-    
-    connect_to_serial()
-    
+
+
+    while not connect_to_serial():
+        time.sleep(5)
+        connect_to_serial()
+
         
 
     if not args.client:
@@ -284,7 +284,9 @@ it waits for the next connect.
                         serial_worker.stop()
                         sys.stderr.write('serialport error. retry in 5 secs...')
                         time.sleep(5)
-                        connect_to_serial()
+                        while not connect_to_serial():
+                            time.sleep(5)
+                            connect_to_serial()
                         break
                     except socket.error as msg:
                         if args.develop:
