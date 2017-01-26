@@ -38,18 +38,8 @@ def get_device_vidpid(vendor_id, product_id):
 
     for device in portlist:
         if device.pid == product_id and device.vid == vendor_id:
-            return device.device
-
-def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
-
-    # a list containing active ports
-    portlist = list(serial.tools.list_ports.comports())
-
-    for device in portlist:
-        if device.pid == product_id and device.vid == vendor_id:
-            # connect and ask for serialnum
             try:
-                print("check for serialnum (", str(args.serialnum) , ") on port: ", device.device)
+                #print("check for serialnum (", str(args.serialnum) , ") on port: ", device.device)
                 ser = serial.Serial(
                 port = device.device,
                 baudrate = args.BAUDRATE,
@@ -66,6 +56,37 @@ def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
                 print("recieved: ", line[:len(line)-1])
                 #ser.close()
                 
+                return ser
+                
+            except serial.SerialException:
+                return None
+
+def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
+
+    # a list containing active ports
+    portlist = list(serial.tools.list_ports.comports())
+
+    for device in portlist:
+        if device.pid == product_id and device.vid == vendor_id:
+            # connect and ask for serialnum
+            try:
+                #print("check for serialnum (", str(args.serialnum) , ") on port: ", device.device)
+                ser = serial.Serial(
+                port = device.device,
+                baudrate = args.BAUDRATE,
+                parity = serial.PARITY_NONE,
+                stopbits = serial.STOPBITS_ONE,
+                bytesize = serial.EIGHTBITS,
+                timeout = 5)
+
+                time.sleep(2)
+
+                ser.write(b'identify\n')
+
+                line = ser.readline()
+                #print("recieved: ", line[:len(line)-1])
+                #ser.close()
+                
 
                 if line[:len(line)-1] == serialnum:
                     return ser
@@ -75,7 +96,7 @@ def get_device_vidpid_serialnum(vendor_id, product_id, serialnum):
                 
             except serial.SerialException:
                 raise
-                pass           
+                return None
 
 
 if __name__ == '__main__':  # noqa
@@ -186,54 +207,54 @@ it waits for the next connect.
         global ser_to_net
         global serial_worker
 
-        # connect to serial port
-        if args.serialport is not None:
-            ser = serial.Serial(
-                port = device.device,
-                baudrate = args.BAUDRATE,
-                parity = serial.PARITY_NONE,
-                stopbits = serial.STOPBITS_ONE,
-                bytesize = serial.EIGHTBITS,
-                timeout = 5)
-        else:
-            if args.serialnum is not None:
-                ser = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
-            else:
-                ser = get_device_vidpid(args.vidpid[0], args.vidpid[1])
-
-
-        #ser.baudrate = args.BAUDRATE
-        #ser.parity = args.parity
-        #ser.rtscts = args.rtscts
-        #ser.xonxoff = args.xonxoff
-
-        if args.rts is not None:
-            ser.rts = args.rts
-
-        if args.dtr is not None:
-            ser.dtr = args.dtr
-
-        if not args.quiet:
-            sys.stderr.write(
-                '--- TCP/IP to Serial redirect on {p.name}  {p.baudrate},{p.bytesize},{p.parity},{p.stopbits} ---\n'
-                '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
-
         try:
-            pass
-        except serial.SerialException as e:
-            if args.develop:
-                raise
-            sys.stderr.write('Could not open serial port {}: {}\n'.format(ser.name, e))
-            time.sleep(5)
-            connect_to_serial()
-            return
+            # connect to serial port
+            if args.serialport is not None:
+                ser = serial.Serial(
+                    port = device.device,
+                    baudrate = args.BAUDRATE,
+                    parity = serial.PARITY_NONE,
+                    stopbits = serial.STOPBITS_ONE,
+                    bytesize = serial.EIGHTBITS,
+                    timeout = 5)
+            else:
+                if args.serialnum is not None:
+                    ser = get_device_vidpid_serialnum(args.vidpid[0], args.vidpid[1], args.serialnum)
+                else:
+                    ser = get_device_vidpid(args.vidpid[0], args.vidpid[1])
 
-        ser_to_net = SerialToNet()
-        serial_worker = serial.threaded.ReaderThread(ser, ser_to_net)
-        serial_worker.start()
+
+            #ser.baudrate = args.BAUDRATE
+            #ser.parity = args.parity
+            #ser.rtscts = args.rtscts
+            #ser.xonxoff = args.xonxoff
+
+            if args.rts is not None:
+                ser.rts = args.rts
+
+            if args.dtr is not None:
+                ser.dtr = args.dtr
+
+            if not args.quiet:
+                sys.stderr.write(
+                    '--- TCP/IP to Serial redirect on {p.name}  {p.baudrate},{p.bytesize},{p.parity},{p.stopbits} ---\n'
+                    '--- type Ctrl-C / BREAK to quit\n'.format(p=ser))
+
+            
+            ser.open()
+ 
+
+            ser_to_net = SerialToNet()
+            serial_worker = serial.threaded.ReaderThread(ser, ser_to_net)
+            serial_worker.start()
+
+            return True
+        except:
+            return False
 
     
-    connect_to_serial()
+    while not connect_to_serial():
+        time.sleep(5)
     
         
 
@@ -289,7 +310,8 @@ it waits for the next connect.
                         serial_worker.stop()
                         sys.stderr.write('serialport error. retry in 5 secs...')
                         time.sleep(5)
-                        connect_to_serial()
+                        while not connect_to_serial():
+                            time.sleep(5)
                         break
                     except socket.error as msg:
                         if args.develop:
