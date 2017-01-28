@@ -11,8 +11,8 @@ class SerialBus:
     msg_index = 0
 
 
-    def __init__(self, port = None, baud = None, serialnum = None):
-        
+    def __init__(self, baud,  port = None, serialnum = None, vidpid = None):
+        '''connects to the RS485 <-> USB bridge if serialnum is passed, or just to port'''
         self.connected = False
         if port is not None and baud is not None:
             if self.connect(port, baud):
@@ -36,7 +36,7 @@ class SerialBus:
             pass
         
 
-    def connect_to_bridge(self, serialnum, baud):
+    def connect_to_bridge(self, serialnum, baud, vidpid = None):
 
         from serial.tools import list_ports
 
@@ -46,7 +46,7 @@ class SerialBus:
         for device in portlist:
             # connect and ask for serialnum
             try:
-                print("check for serialnum (", serialnum , ") on port: ", device.device)
+                #print("check for serialnum (", serialnum , ") on port: ", device.device)
                 ser = serial.Serial(
                 port = device.device,
                 baudrate = baud,
@@ -60,7 +60,7 @@ class SerialBus:
                 ser.write(b'identify\n')
 
                 line = ser.readline()
-                print("recieved: ", line[:len(line)-1].decode('ascii'))
+                #print("recieved: ", line[:len(line)-1].decode('ascii'))
                 
 
                 if line[:len(line)-1].decode('ascii') == (serialnum):
@@ -126,8 +126,8 @@ class SerialBus:
         message += bytes([self.build_XOR_checksum(message)])
         self.send_raw_message(message)
 
-    def send_request_wait(self, address, msg, timeout=10**4):
-        """ send a request. permission to send = true """
+    def send_request_wait(self, address, msg, timeout=10**4, is_string=False):
+        """ send a request and wait for the answer. permission to send = true """
         try:
             header = self.build_header(address, True, len(msg)+1)
             message = header + bytes(msg)
@@ -139,14 +139,20 @@ class SerialBus:
             s_address, answer = self.retrieve_msg(timeout=timeout)
 
             if (address == s_address):
-                return answer
+                if is_string:
+                    answer_str = ""
+                    for char in answer:
+                        answer_str += chr(char)
+                    return answer_str
+                else:
+                    return answer
             else:
                 return "wrong address"
         except:
             raise
 
     def send_ack(self, address, checksum):
-        """ send a message to address. permission to send = false"""
+        """ send an acknowledgement. permission to send = false"""
         
             
         header = bytes([255, 128 + 64 + address, 255, 133])
