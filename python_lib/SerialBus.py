@@ -11,19 +11,22 @@ class SerialBus:
     msg_index = 0
 
 
-    def __init__(self, baud,  port = None, serialnum = None, vidpid = None):
+    def __init__(self, baud = None,  port = None, serialnum = None, vidpid = None):
         '''connects to the RS485 <-> USB bridge if serialnum is passed, or just to port'''
         self.connected = False
         if port is not None and baud is not None:
             if self.connect(port, baud):
                 self.connected = True
         elif serialnum is not None and baud is not None:
-            if self.connect_to_bridge(serialnum, baud):
+            if self.connect(serialnum = serialnum, baud = baud, vidpid = vidpid):
                 self.connected = True
 
     def close(self):
         if self.connected:
-            self.ser.close()
+            try:
+                self.ser.close()
+            except:
+                raise
             self.connected = False
 
     def is_connected(self):
@@ -42,35 +45,42 @@ class SerialBus:
 
         # a list containing active ports
         portlist = list(list_ports.comports())
+        
+        pid = ""
+        vid = ""
+        if vidpid is not None:
+            vid, pid = vidpid.split(sep=':')
+            
 
         for device in portlist:
             # connect and ask for serialnum
-            try:
-                #print("check for serialnum (", serialnum , ") on port: ", device.device)
-                ser = serial.Serial(
-                port = device.device,
-                baudrate = baud,
-                parity = serial.PARITY_NONE,
-                stopbits = serial.STOPBITS_ONE,
-                bytesize = serial.EIGHTBITS,
-                timeout = 2)
+            if vidpid is None or str(device.pid) == pid and str(device.vid) == vid:
+                try:
+                    #print("check for serialnum (", serialnum , ") on port: ", device.device)
+                    ser = serial.Serial(
+                    port = device.device,
+                    baudrate = baud,
+                    parity = serial.PARITY_NONE,
+                    stopbits = serial.STOPBITS_ONE,
+                    bytesize = serial.EIGHTBITS,
+                    timeout = 2)
 
-                time.sleep(2)
+                    time.sleep(2)
 
-                ser.write(b'identify\n')
+                    ser.write(b'identify\n')
 
-                line = ser.readline()
-                #print("recieved: ", line[:len(line)-1].decode('ascii'))
-                
+                    line = ser.readline()
+                    #print("recieved: ", line[:len(line)-1].decode('ascii'))
+                    
 
-                if line[:len(line)-1].decode('ascii') == (serialnum):
-                    self.ser = ser
-                    return True
-                else:
-                    ser.close()
-            except:
-                raise
-                pass
+                    if line[:len(line)-1].decode('ascii') == (serialnum):
+                        self.ser = ser
+                        return True
+                    else:
+                        ser.close()
+                except:
+                    raise
+                    pass
 
     def build_header(self, address, permission_to_send, size):
 
@@ -90,23 +100,28 @@ class SerialBus:
         return bytes(header)
 
 
-    def connect(self, comport, baud):
+    def connect(self, baud, comport = None, vidpid = None, serialnum = None):
         """ port as device name e.g. "/dev/ttyUSB0"
         """
-        #import serial
-        try:
-            self.ser = serial.Serial(
-            port = comport,
-            baudrate = baud,
-            parity = serial.PARITY_NONE,
-            stopbits = serial.STOPBITS_ONE,
-            bytesize = serial.EIGHTBITS,
-            timeout = 2)
-            #self.ser.open()
-            return True
-        except serial.SerialException:
-            raise
-            return False
+        if comport is not None:
+            #import serial
+            try:
+                self.ser = serial.Serial(
+                port = comport,
+                baudrate = baud,
+                parity = serial.PARITY_NONE,
+                stopbits = serial.STOPBITS_ONE,
+                bytesize = serial.EIGHTBITS,
+                timeout = 2)
+                #self.ser.open()
+                return True
+            except serial.SerialException:
+                raise
+                return False
+        else:
+            return self.connect_to_bridge(baud = baud, vidpid = vidpid, serialnum = serialnum)
+            
+            
 
 
     def send_msg(self, address, msg):
