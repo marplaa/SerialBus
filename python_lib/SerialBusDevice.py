@@ -116,7 +116,7 @@ class SerialBusDevice:
 
 
     def reset_defaults(self):
-        self.serialbus.send_msg(self.device_addr, bytes([10 << 2]))
+        self.serialbus.send_msg(self.device_addr, bytes([9 << 2]))
 
 
     def connect(self, host, port):
