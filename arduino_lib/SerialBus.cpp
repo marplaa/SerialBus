@@ -404,8 +404,12 @@ int SerialBus::sendDataAckWait(byte *data, int length, long timeout) {
 	long currentmillis = 0;
 	while (!_data_acked) {
 		if (currentmillis - startmillis > timeout) {
-
+			_data_acked = false;
+			_checksum_to_ack = 0;
+			_wait_for_ack = false;
+			cleanUp();
 			return TIMEOUT;
+			
 		}
 
 		check();
