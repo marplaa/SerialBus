@@ -396,7 +396,7 @@ byte SerialBus::sendDataAck(byte *data, int length) {
 	return _checksum_to_ack;
 }
 
-int SerialBus::sendDataAckWait(byte *data, int length, long timeout) {
+int SerialBus::sendDataAckWait(byte *data, int length, unsigned long timeout) {
 
 	sendDataAck(data, length);
 
