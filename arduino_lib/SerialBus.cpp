@@ -401,7 +401,7 @@ int SerialBus::sendDataAckWait(byte *data, int length, unsigned long timeout) {
 	sendDataAck(data, length);
 
 	unsigned long startmillis = millis();
-	unsigned long currentmillis = 0;
+	unsigned long currentmillis = millis();
 	while (!_data_acked) {
 		if (currentmillis - startmillis > timeout) {
 			_data_acked = false;
